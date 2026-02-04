@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="row mb-4">
+    <div class="col-md-5">
+        <div class="card bg-light border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <h4 class="mb-0">👤 Профиль</h4>
+                        <small class="text-muted">{{ current_user.username }}</small>
+                    </div>
+                    <div class="text-end">
+                        <div class="text-muted small">Баланс</div>
+                        <h2 class="text-primary fw-bold mb-0">{{ current_user.balance }} ₽</h2>
+                        <button class="btn btn-success btn-sm mt-1 shadow-sm" data-bs-toggle="modal" data-bs-target="#paymentModal">
+                            <i class="bi bi-plus-circle"></i> Пополнить
+                        </button>
+                    </div>
+                </div>
+
+                <hr>
+
+                {% if is_subscribed %}
+                    <div class="alert alert-success d-flex align-items-center shadow-sm py-2 mb-0">
+                        <i class="bi bi-star-fill fs-4 me-3 text-warning"></i>
+                        <div>
+                            <strong>Абонемент активен!</strong><br>
+                            До {{ current_user.subscription_end.strftime('%d.%m.%Y') }}
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="d-flex align-items-center justify-content-between bg-white p-2 rounded border shadow-sm">
+                        <div class="small">
+                            <strong>Абонемент</strong><br>3000₽/мес
+                        </div>
+                        <form method="POST">
+                            <input type="hidden" name="action" value="buy_subscription">
+                            <button class="btn btn-warning fw-bold btn-sm">Купить</button>
+                        </form>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-7">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-shield-exclamation"></i> Мои аллергии</h5>
+                <small>Мы скроем опасные блюда</small>
+            </div>
+            <div class="card-body d-flex flex-column">
+                <div class="table-responsive flex-grow-1 mb-2">
+                    <table class="table table-sm table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Название</th>
+                                <th class="text-end">Управление</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for a in current_user.allergies_list %}
+                            <tr>
+                                <td class="fw-bold text-danger">{{ a.name }}</td>
+                                <td class="text-end">
+                                    <a href="{{ url_for('remove_allergy', allergy_id=a.id) }}" class="btn btn-sm btn-outline-secondary border-0 text-danger" title="Удалить">
+                                        <i class="bi bi-x-lg"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="2" class="text-center text-muted py-3 small">
+                                    Список пуст. Вы можете есть всё! 😋
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <form method="POST" class="d-flex gap-2 border-top pt-3">
+                    <input type="hidden" name="action" value="add_allergy">
+
+                    <input type="text"
+                           name="allergy_name"
+                           class="form-control form-control-sm"
+                           placeholder="Введи любую букву названия аллергии"
+                           list="ingredientsList"
+                           autocomplete="off"
+                           required>
+
+                    <datalist id="ingredientsList">
+                        {% for ingredient in all_ingredients %}
+                            <option value="{{ ingredient }}">
+                        {% endfor %}
+                    </datalist>
+
+                    <button class="btn btn-danger btn-sm text-nowrap">Добавить</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<h2 class="text-center mb-4">🍽 Меню столовой</h2>
+
+{% for category_name, items, icon, color_class in [
+    ('Завтраки', breakfasts, 'bi-cup-hot', 'text-warning'),
+    ('Обеды', lunches, 'bi-fire', 'text-danger'),
+    ('Комплексы', combos, 'bi-box-seam', 'text-success')
+] %}
+
+{% if items %}
+<h3 class="{{ color_class }} border-bottom pb-2 mb-3"><i class="bi {{ icon }}"></i> {{ category_name }}</h3>
+<div class="row row-cols-1 row-cols-md-3 g-4 mb-5">
+    {% for item in items %}
+
+    {% set ns = namespace(is_dangerous=false) %}
+    {% if current_user.allergies and item.ingredients %}
+        {% for allergy in current_user.allergies.split(',') %}
+            {% if allergy.strip() and allergy.strip().lower() in item.ingredients.lower() %}
+                {% set ns.is_dangerous = true %}
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+
+    <div class="col">
+        <div class="card h-100 shadow-sm {{ 'border-danger border-2' if ns.is_dangerous else 'border-0' }}">
+            <div class="card-body d-flex flex-column">
+                <h5 class="card-title fw-bold d-flex justify-content-between align-items-start">
+                    {{ item.name }}
+                    {% if ns.is_dangerous %}
+                        <span class="badge bg-danger">⛔ АЛЛЕРГЕН</span>
+                    {% endif %}
+                </h5>
+                <p class="card-text small text-muted mb-1">{{ item.description }}</p>
+                <div class="small text-secondary mb-3 fst-italic border-top pt-1 mt-1">
+                    <strong>Состав:</strong> {{ item.ingredients if item.ingredients else 'Не указан' }}
+                </div>
+
+                <div class="mt-auto d-flex justify-content-between align-items-center">
+                    <span class="h5 text-primary mb-0">{{ 0 if is_subscribed else item.price }} ₽</span>
+                    {% if ns.is_dangerous %}
+                        <button class="btn btn-sm btn-outline-danger disabled" style="cursor: not-allowed;">Опасно</button>
+                    {% else %}
+                        <form method="POST">
+                            <input type="hidden" name="action" value="buy_item">
+                            <input type="hidden" name="item_id" value="{{ item.id }}">
+                            <button type="submit" class="btn btn-sm btn-success px-3 shadow-sm">В корзину</button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endfor %}
+
+<div class="card border-0 shadow-sm mt-5">
+    <div class="card-header bg-white"><h5 class="mb-0">📜 История операций</h5></div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle small">
+            <thead class="table-light"><tr><th>Дата</th><th>Название</th><th>Цена</th><th>Статус</th><th>Действие</th></tr></thead>
+            <tbody>
+                {% for order in orders %}
+                <tr class="{{ 'table-success' if order.status == 'Абонемент' else '' }}">
+                    <td>{{ order.date.strftime('%d.%m %H:%M') }}</td>
+                    <td class="fw-bold">
+                        {% if order.item %}
+                            {{ order.item.name }}
+                        {% elif order.status == 'Абонемент' %}
+                            <span class="badge bg-warning text-dark">🔥 Покупка абонемента</span>
+                        {% else %}
+                            Удаленное блюдо
+                        {% endif %}
+                    </td>
+                    <td>{{ order.price_paid }} ₽</td>
+                    <td>
+                        {% if order.status == 'Абонемент' %}
+                            <i class="bi bi-check-circle-fill text-success"></i> Активен
+                        {% elif order.student_confirmed %}
+                            <span class="badge bg-success">Получено</span>
+                        {% elif order.status == 'Готово' %}
+                            <span class="badge bg-warning text-dark">Ждет выдачи</span>
+                        {% else %}
+                            <span class="badge bg-secondary">{{ order.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if order.status == 'Выдан' and not order.student_confirmed %}
+                        <form method="POST" class="d-inline">
+                            <input type="hidden" name="action" value="confirm_receipt">
+                            <input type="hidden" name="order_id" value="{{ order.id }}">
+                            <button class="btn btn-sm btn-primary py-0">Я поел</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="paymentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">Пополнение баланса</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('add_funds') }}" method="POST">
+                <div class="modal-body bg-light">
+                    <div class="card text-white mb-3 shadow" style="background: linear-gradient(135deg, #0d6efd, #0dcaf0); border: none; border-radius: 15px;">
+                        <div class="card-body p-4">
+                            <div class="d-flex justify-content-between mb-4"><i class="bi bi-wifi fs-4"></i><span class="fs-5 fst-italic">BANK CARD</span></div>
+                            <div class="mb-3"><input type="text" name="card_number" class="form-control form-control-sm bg-transparent text-white border-light" placeholder="0000 0000 0000 0000" maxlength="19" required></div>
+                            <div class="row">
+                                <div class="col-8"><div class="text-uppercase small">{{ current_user.username }}</div></div>
+                                <div class="col-4"><input type="text" placeholder="MM/YY" class="form-control form-control-sm bg-transparent text-white border-light text-center" maxlength="5"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-floating mb-3">
+                        <input type="number" name="amount" class="form-control fw-bold fs-4 text-success" id="amountInput" placeholder="Сумма" min="10" required>
+                        <label for="amountInput">Сумма (₽)</label>
+                    </div>
+                </div>
+                <div class="modal-footer"><button type="submit" class="btn btn-success w-100 py-2">Оплатить</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

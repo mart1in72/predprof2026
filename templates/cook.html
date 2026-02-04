@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="row">
+    <div class="col-12 mb-4">
+        <h2>👨‍🍳 Панель Повара</h2>
+    </div>
+</div>
+
+<div class="row">
+
+    <div class="col-md-7">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">📋 Текущие заказы</h5>
+                <span class="badge bg-white text-primary">{{ orders|length }} шт.</span>
+            </div>
+            <div class="card-body p-0">
+                {% if orders %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Время</th>
+                                <th>Блюдо</th>
+                                <th>Статус</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for order in orders %}
+                            <tr>
+                                <td>{{ order.date.strftime('%H:%M') }}</td>
+                                <td class="fw-bold">{{ order.item.name }}</td>
+                                <td>
+                                    {% if order.status == 'Оплачено' %}
+                                        <span class="badge bg-danger">Готовить!</span>
+                                    {% elif order.status == 'Готово' %}
+                                        <span class="badge bg-warning text-dark">Ждет выдачи</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ order.status }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        {% if order.status == 'Оплачено' %}
+                                            <a href="{{ url_for('update_order', id=order.id, status='Готово') }}" class="btn btn-success">✅ Готово</a>
+                                        {% endif %}
+                                        {% if order.status == 'Готово' %}
+                                            <a href="{{ url_for('update_order', id=order.id, status='Выдан') }}" class="btn btn-outline-dark">📤 Выдать</a>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                    <div class="p-4 text-center text-muted">Заказов пока нет, можно отдохнуть! ☕</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white">📦 Склад продуктов</div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <thead><tr><th>Продукт</th><th>Остаток</th><th>Изм.</th></tr></thead>
+                    <tbody>
+                        {% for prod in products %}
+                        <tr>
+                            <td>{{ prod.name }}</td>
+                            <td>
+                                <form method="POST" class="d-flex" action="{{ url_for('cook_dashboard') }}">
+                                    <input type="hidden" name="action" value="update_stock">
+                                    <input type="hidden" name="product_id" value="{{ prod.id }}">
+                                    <input type="number" step="0.1" name="quantity" value="{{ prod.quantity }}" class="form-control form-control-sm me-1" style="width: 70px;">
+                                    <span class="text-muted align-self-center">{{ prod.unit }}</span>
+                                    <button class="btn btn-sm btn-outline-secondary ms-2">💾</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-5">
+        <div class="card shadow border-warning">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0"><i class="bi bi-cart-plus"></i> Заказать продукты</h5>
+            </div>
+            <div class="card-body bg-light">
+
+                <form method="POST" id="purchaseForm">
+                    <input type="hidden" name="action" value="request_product">
+
+                    <div id="productRows">
+                        <div class="row g-2 mb-2 product-row">
+                            <div class="col-7">
+                                <input type="text" name="product_names[]" class="form-control" placeholder="Название (напр. Мука)" required>
+                            </div>
+                            <div class="col-4">
+                                <input type="number" step="0.1" name="quantities[]" class="form-control" placeholder="Кг/Л" required>
+                            </div>
+                            </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-3">
+                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="addRow()">
+                            <i class="bi bi-plus-lg"></i> Добавить строку
+                        </button>
+                        <button type="submit" class="btn btn-warning shadow-sm">
+                            Отправить заявку
+                        </button>
+                    </div>
+                </form>
+
+                <hr>
+
+                <h6 class="text-muted small">Мои последние заявки:</h6>
+                <ul class="list-group list-group-flush small">
+                    {% for req in my_requests %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent px-0">
+                        <span>{{ req.product_name }} ({{ req.quantity }})</span>
+                        {% if req.status == 'На рассмотрении' %}
+                            <span class="badge bg-secondary">⏳ Ждем</span>
+                        {% elif req.status == 'Одобрено' %}
+                            <span class="badge bg-success">✓ Куплено</span>
+                        {% else %}
+                            <span class="badge bg-danger">Отмена</span>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function addRow() {
+    const container = document.getElementById('productRows');
+    const newRow = document.createElement('div');
+    newRow.className = 'row g-2 mb-2 product-row fade-in';
+    newRow.innerHTML = `
+        <div class="col-7">
+            <input type="text" name="product_names[]" class="form-control" placeholder="Название" required>
+        </div>
+        <div class="col-4">
+            <input type="number" step="0.1" name="quantities[]" class="form-control" placeholder="Кг/Л" required>
+        </div>
+        <div class="col-1 text-end">
+            <button type="button" class="btn btn-outline-danger px-2" onclick="this.closest('.product-row').remove()">×</button>
+        </div>
+    `;
+    container.appendChild(newRow);
+}
+</script>
+
+<style>
+    .fade-in { animation: fadeIn 0.3s; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+
+{% endblock %}

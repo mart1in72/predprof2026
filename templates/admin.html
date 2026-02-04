@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>🛠 Кабинет Администратора</h2>
+    <a href="{{ url_for('download_report') }}" class="btn btn-success shadow-sm">
+        <i class="bi bi-file-earmark-excel-fill"></i> Отчет (.csv)
+    </a>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card shadow-sm border-primary border-top border-3">
+            <div class="card-body text-center row">
+                <div class="col-md-4 border-end"><h6 class="text-muted small">Выручка</h6><h3 class="text-success">+{{ income }} ₽</h3></div>
+                <div class="col-md-4 border-end"><h6 class="text-muted small">Расходы</h6><h3 class="text-danger">-{{ expenses }} ₽</h3></div>
+                <div class="col-md-4"><h6 class="text-muted small">Прибыль</h6><h3 class="text-primary">{{ profit }} ₽</h3></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4 border-0">
+    <div class="card-header bg-primary text-white"><h5 class="mb-0"><i class="bi bi-people-fill"></i> Управление персоналом</h5></div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4 border-end">
+                <h6 class="fw-bold mb-3">Создать аккаунт</h6>
+                <form method="POST">
+                    <input type="hidden" name="action" value="create_staff">
+                    <div class="mb-2">
+                        <label class="small text-muted">Логин</label>
+                        <input type="text" name="username" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="small text-muted">Пароль</label>
+                        <input type="password" name="password" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="small text-muted">Роль</label>
+                        <select name="role" class="form-select form-select-sm">
+                            <option value="cook">Повар </option>
+                            <option value="admin">Администратор </option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary btn-sm w-100">Зарегистрировать</button>
+                </form>
+            </div>
+            <div class="col-md-8">
+                <h6 class="fw-bold mb-3 ms-2">Сотрудники</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle">
+                        <thead class="table-light"><tr><th>Логин</th><th>Роль</th></tr></thead>
+                        <tbody>
+                            {% for person in staff %}
+                            <tr>
+                                <td class="fw-bold">{{ person.username }}</td>
+                                <td>
+                                    {% if person.role == 'admin' %}<span class="badge bg-dark">Admin</span>
+                                    {% else %}<span class="badge bg-info text-dark">Cook</span>{% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header bg-white fw-bold">👥 Посетители сегодня</div>
+            <div class="card-body p-0 overflow-auto" style="max-height: 300px;">
+                <table class="table table-striped mb-0 table-sm">
+                    <thead><tr><th>Кто</th><th>Время</th><th>Тип</th><th>Сумма</th></tr></thead>
+                    <tbody>
+                        {% for v in visitors_data %}
+                        <tr>
+                            <td class="fw-bold">{{ v.username }}</td>
+                            <td>{{ v.time }}</td>
+                            <td>{{ v.type }}</td>
+                            <td>{{ v.spent }} ₽</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 mb-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header bg-warning text-dark fw-bold">🛒 Заявки на продукты</div>
+            <div class="card-body overflow-auto" style="max-height: 300px;">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>Продукт</th><th>Действие</th></tr></thead>
+                    <tbody>
+                        {% for req in requests %}
+                        <tr>
+                            <td>
+                                <strong>{{ req.product_name }}</strong> <span class="badge bg-light text-dark">{{ req.quantity }} кг</span><br>
+                                <small class="text-muted">{{ req.created_at.strftime('%d.%m %H:%M') }}</small>
+                            </td>
+                            <td>
+                                {% if req.status == 'На рассмотрении' %}
+                                <form method="POST" class="d-flex gap-1">
+                                    <input type="hidden" name="request_id" value="{{ req.id }}">
+                                    <input type="number" name="cost" class="form-control form-control-sm" placeholder="Цена" style="width: 70px;" required>
+                                    <button name="status" value="Одобрено" class="btn btn-success btn-sm">✓</button>
+                                    <button name="status" value="Отклонено" class="btn btn-outline-danger btn-sm">X</button>
+                                </form>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ req.status }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm mt-3">
+    <div class="card-header bg-dark text-white">🍽 Меню</div>
+    <div class="card-body">
+        <form method="POST" class="row g-2 align-items-end border-bottom pb-4 mb-4 bg-light p-2 rounded">
+            <div class="col-md-3"><label class="small text-muted">Название</label><input type="text" name="name" class="form-control" required></div>
+            <div class="col-md-2"><label class="small text-muted">Цена</label><input type="number" name="price" class="form-control" required></div>
+            <div class="col-md-2"><label class="small text-muted">Категория</label>
+                <select name="category" class="form-select"><option value="breakfast">Завтрак</option><option value="lunch">Обед</option><option value="combo">Комплекс</option></select>
+            </div>
+            <div class="col-md-3"><label class="small text-muted">Состав</label><input type="text" name="ingredients" class="form-control" placeholder="ингредиенты..." required></div>
+            <div class="col-md-2"><button class="btn btn-success w-100">Добавить</button></div>
+            <div class="col-12 mt-2"><input type="text" name="desc" class="form-control form-control-sm" placeholder="Описание"></div>
+        </form>
+
+        <div class="table-responsive">
+            <table class="table table-sm table-striped align-middle">
+                <thead><tr><th>Блюдо</th><th>Состав</th><th>Цена</th><th>Удалить</th></tr></thead>
+                <tbody>
+                    {% for item in menu %}
+                    <tr>
+                        <td><span class="fw-bold">{{ item.name }}</span><br><small class="text-muted">{{ item.description }}</small></td>
+                        <td class="small fst-italic text-secondary">{{ item.ingredients }}</td>
+                        <td class="fw-bold">{{ item.price }} ₽</td>
+                        <td>
+                            <form action="{{ url_for('delete_item', id=item.id) }}" method="POST" onsubmit="return confirm('Удалить?');">
+                                <button class="btn btn-sm btn-outline-danger border-0"><i class="bi bi-trash"></i></button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
